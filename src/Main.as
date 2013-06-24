@@ -27,6 +27,13 @@
 
 	[SWF(width="1000", height="800", frameRate="20", backgroundColor="#000000")]
 	public class Main extends Sprite {
+		public static const ANIM_COMPLETE : String = "ANIM_COMPLETE";
+		
+		[Embed(source="img1.png")]
+		private var _Bmp1 : Class;
+		[Embed(source="leaf.png")]
+		private var _Leaf : Class;
+		
 		private static const WIDTH : Number = 300;
 		private static const COLUMNS : Number = 10;
 		private static const ROWS : Number = 20;
@@ -39,51 +46,62 @@
 		private static const CAR_MOVE_ACROSS_DURATION : Number = 5;
 		private static const CAR_FINAL_X : Number = 1000;
 		private static const CAR_INIT_X : Number = -350;
-		[Embed(source="img1.png")]
-		private var _Bmp1 : Class;
-		[Embed(source="leaf.png")]
-		private var _Leaf : Class;
-		private static const NUM_OF_BALLS : Number = 8;
+		
 		private var wowConstraints : Array;
 		private var wow : WOWEngine;
 		private var gravity : Number = 0;
 		private var carIsChecking : Boolean;
-		// = true;
-		// = true;
 		public var _helloWorld : HelloWorld;
 		private var wowVertices : Array;
 		private var _holder2d : Sprite;
 		private var _car : Sprite;
-		private var _startCar : Sprite;
-		private var _beginAnim : Sprite;
-		private var _toggleYaw : Sprite;
 		private var isYaw : Boolean;
-		private var _resetCar : Sprite;
 		private var lastCarRect : Rectangle;
 		private var movementX : Number = 0;
-		private var _toggle3D : Sprite;
 		private var vis3d : Boolean = true;
 		private var _gui : SimpleGUI;
-		private var guiHolder : Sprite;
 		private var _toggleMaterial : Boolean;
 		private var debug : Boolean = true;
 		private var curtainBmpd : BitmapData;
+		private var _frame : Sprite;
 
 		public function Main() {
+			initApp();
+
+			// ///    THIS FUNCTION SHOULD BE CALLED BY THE PARENT MOVIECLIP
+			setBitmap(new _Bmp1().bitmapData);
+			//// ///
+			if (debug){
+				startCar();
+			}else{
+				addKeyline();
+			}
+		}
+
+		private function initApp() : void {
 			_holder2d = new Sprite();
-			_holder2d.x = 400;
-			_holder2d.y = 80;
+			if (debug) {
+				_holder2d.x = 400;
+				_holder2d.y = 80;
+			}
 
 			_car = new Sprite();
-			_car.addChild(Drawing.drawBox(CAR_WIDTH, CAR_HEIGHT, 0x00ff00, .5));
+			if (debug) {
+				_car.addChild(Drawing.drawBox(CAR_WIDTH, CAR_HEIGHT, 0x00ff00, .5));
+			}
 			_car.x = CAR_INIT_X;
 			_car.y = CAR_INIT_Y;
 			var leaf : Bitmap = new _Leaf();
 			leaf.x = -150;
 			_car.addChild(leaf);
 			_holder2d.addChild(_car);
+			
+		}
 
-			setBitmap(new _Bmp1().bitmapData);
+		private function addKeyline() : void {
+			_frame = new Sprite();
+			_frame.addChild(Drawing.drawBox(WIDTH, HEIGHT, 0xff00ff, 0,1, 0xffffff, 1));
+			addChild(_frame);
 		}
 
 		private function setBitmap(bmpd : BitmapData) : void {
@@ -92,10 +110,12 @@
 			init3D();
 			addChild(_holder2d);
 			addEventListener(Event.ENTER_FRAME, loop);
-			addGUI();
-			var stat : Stats = new Stats();
-			stat.x = 900;
-			addChild(stat);
+			if (debug) {
+				addGUI();
+				var stat : Stats = new Stats();
+				stat.x = 900;
+				addChild(stat);
+			}
 			syncRenderingToPhysics();
 		}
 
@@ -174,10 +194,6 @@
 
 		private function toggleYaw(event : MouseEvent = null) : void {
 			isYaw = !isYaw;
-			if (!isYaw) {
-				// planeHolder.rotationY = 0;
-				// _activeHolder.rotationY = 0;
-			}
 		}
 
 		private function beginAnim(event : MouseEvent = null) : void {
@@ -188,6 +204,8 @@
 
 		private function animationComplete() : void {
 			carIsChecking = false;
+			var e:Event = new Event(ANIM_COMPLETE);
+			dispatchEvent(e);
 		}
 
 		private function startCar(event : MouseEvent = null) : void {
@@ -254,6 +272,10 @@
 
 		private function init3D() : void {
 			_helloWorld = new HelloWorld(WIDTH, HEIGHT, COLUMNS, ROWS, curtainBmpd);
+			if (!debug){
+				_helloWorld.x = -300;
+				_helloWorld.y = -50;
+			}
 			addChild(_helloWorld);
 		}
 
