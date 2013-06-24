@@ -1,4 +1,5 @@
 ﻿package {
+	import alwaysAnimationTool.Away3DWorld;
 	import fr.seraf.wow.constraint.WSpringConstraint;
 	import fr.seraf.wow.core.WOWEngine;
 	import fr.seraf.wow.core.data.WVector;
@@ -19,6 +20,9 @@
 	import flash.display.Bitmap;
 	import flash.display.BitmapData;
 	import flash.display.Sprite;
+	import flash.display.StageAlign;
+	import flash.display.StageQuality;
+	import flash.display.StageScaleMode;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
 	import flash.geom.Matrix;
@@ -35,9 +39,13 @@
 		private var _Leaf : Class;
 		
 		private static const WIDTH : Number = 300;
+		private static const HEIGHT : Number = 600;
+		
+		//INCREASING THE NUMBER OF COLUMNS AND ROWS WILL LOOK BETTER BUT RUN SLOWER
 		private static const COLUMNS : Number = 10;
 		private static const ROWS : Number = 20;
-		private static const HEIGHT : Number = 600;
+		
+		
 		private static const CAR_WIDTH : Number = 300;
 		private static const CAR_HEIGHT : Number = 200;
 		private static const CAR_INIT_Y : Number = 400;
@@ -64,6 +72,7 @@
 		private var debug : Boolean = true;
 		private var curtainBmpd : BitmapData;
 		private var _frame : Sprite;
+		private var away3dWorld : Away3DWorld;
 
 		public function Main() {
 			initApp();
@@ -95,6 +104,10 @@
 			leaf.x = -150;
 			_car.addChild(leaf);
 			_holder2d.addChild(_car);
+			stage.align = StageAlign.TOP_LEFT;
+			
+			stage.scaleMode = StageScaleMode.NO_SCALE;
+			stage.quality = StageQuality.LOW;
 			
 		}
 
@@ -108,6 +121,7 @@
 			curtainBmpd = flipBitmapData(bmpd, "y");
 			initPhysics();
 			init3D();
+			initAway3D();
 			addChild(_holder2d);
 			addEventListener(Event.ENTER_FRAME, loop);
 			if (debug) {
@@ -117,6 +131,11 @@
 				addChild(stat);
 			}
 			syncRenderingToPhysics();
+		}
+
+		private function initAway3D() : void {
+			away3dWorld = new Away3DWorld(WIDTH, HEIGHT, COLUMNS, ROWS, curtainBmpd);
+			addChild(away3dWorld);
 		}
 
 		public function flipBitmapData(original : BitmapData, axis : String = "x") : BitmapData {
@@ -297,6 +316,8 @@
 			if (vis3d) {
 				_helloWorld.visible = true;
 				_helloWorld.singleRender();
+				away3dWorld.visible = true;
+				away3dWorld.singleRender();
 			} else {
 				_helloWorld.visible = false;
 			}
