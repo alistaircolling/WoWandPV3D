@@ -1,25 +1,10 @@
 package com.unitzeroone.pv3d.examples {
-	import com.greensock.TweenLite;
-
-	import flash.events.MouseEvent;
-
-	import graphics.Drawing;
-
-	import flash.display.Sprite;
-
-	import org.papervision3d.materials.utils.MaterialsList;
-	import org.papervision3d.objects.primitives.Cube;
-	import org.papervision3d.objects.DisplayObject3D;
-	import org.papervision3d.core.proto.DisplayObjectContainer3D;
-	import org.papervision3d.materials.WireframeMaterial;
-
-	import net.hires.debug.Stats;
-
+	import org.papervision3d.core.geom.TriangleMesh3D;
 	import org.papervision3d.core.geom.renderables.Vertex3D;
-	import org.papervision3d.core.utils.MeshUtil;
 	import org.papervision3d.lights.PointLight3D;
 	import org.papervision3d.materials.BitmapColorMaterial;
 	import org.papervision3d.materials.BitmapMaterial;
+	import org.papervision3d.materials.WireframeMaterial;
 	import org.papervision3d.materials.shaders.CellShader;
 	import org.papervision3d.materials.shaders.FlatShader;
 	import org.papervision3d.materials.shaders.GouraudShader;
@@ -27,16 +12,17 @@ package com.unitzeroone.pv3d.examples {
 	import org.papervision3d.materials.shaders.ShadedMaterial;
 	import org.papervision3d.materials.shaders.Shader;
 	import org.papervision3d.materials.special.VectorShapeMaterial;
+	import org.papervision3d.materials.utils.MaterialsList;
+	import org.papervision3d.objects.DisplayObject3D;
+	import org.papervision3d.objects.primitives.Cube;
 	import org.papervision3d.objects.primitives.Plane;
 	import org.papervision3d.objects.primitives.Sphere;
-	import org.papervision3d.objects.special.VectorShape3D;
 	import org.papervision3d.view.BasicView;
 
-	import flash.display.Bitmap;
 	import flash.display.BitmapData;
-	import flash.display.BitmapDataChannel;
+	import flash.display.Sprite;
 	import flash.events.Event;
-	import flash.geom.Point;
+	import flash.geom.Matrix;
 
 	/**
 	 * @author Ralph Hauwert
@@ -51,15 +37,9 @@ package com.unitzeroone.pv3d.examples {
 		private static const CAR_FINAL_X : Number = 400;
 		private static const CAR_INIT_X : Number = -370;
 		protected var curtainBMPD : BitmapData;
-		protected var planeMaterial : BitmapMaterial;
-		[Embed(source="img1.png")]
-		private var _Bmp1 : Class;
-		private var light : PointLight3D;
-		private var phongShader : PhongShader;
-		private var mat : BitmapMaterial;
-		private var phongShaderMat : ShadedMaterial;
-		private var mesh : MeshUtil;
-		private var vectShape : VectorShape3D;
+		public var planeMaterial : BitmapMaterial;
+		public var light : PointLight3D;
+		public var mesh : TriangleMesh3D;
 		private var vectMat : VectorShapeMaterial;
 		public var plane : Plane;
 		private var perlin : BitmapData;
@@ -67,23 +47,22 @@ package com.unitzeroone.pv3d.examples {
 		private var bmpColor : BitmapColorMaterial;
 		private var sphere : Sphere;
 		private var wireMaterial : WireframeMaterial;
-		private var ballsHolder : DisplayObject3D;
-		private var planeHolder : DisplayObject3D;
+		public var planeHolder : DisplayObject3D;
 		private var _carWire : WireframeMaterial;
 		private var car : Cube;
 		private var materiallist : MaterialsList;
 		private var _yellowWire : WireframeMaterial;
 		private var _yellowList : MaterialsList;
 		private var _activeHolder : DisplayObject3D;
-		private var _startCar : Sprite;
-		private var _beginAnim : Sprite;
-		private var _toggleYaw : Sprite;
 		private var isYaw : Boolean;
 		private var _resetCar : Sprite;
 		private var bannerWidth : Number;
 		private var bannerHeight : Number;
 		private var columns : Number;
 		private var rows : uint;
+		private var isBitmap : Boolean;
+		private var shaders : Array = ["flat", "cell", "gouraud", "phong"];
+		private var _shadeIndex : uint = 0;
 
 		/**
 		 * HelloWorld
@@ -95,13 +74,14 @@ package com.unitzeroone.pv3d.examples {
 		 * 
 		 * This HelloWorld example utilizes BasicView to set up the the basics, and then extends upon it and setup a basic primitive and material.
 		 */
-		public function HelloWorld(w : Number, h : Number, cols : Number, rowss : Number) {
+		public function HelloWorld(w : Number, h : Number, cols : Number, rowss : Number, bmpd : BitmapData) {
 			/**
 			 * Call the BasicView constructor.
 			 * Width and Height are set to 1, since scaleToStage is set to true, these will be overriden.
 			 * We will not use interactivity and keep the default cameraType.
 			 */
 			super(1, 1, true, false);
+			curtainBMPD = bmpd;
 			bannerWidth = w;
 			bannerHeight = h;
 			columns = cols;
@@ -121,26 +101,26 @@ package com.unitzeroone.pv3d.examples {
 		 */
 		protected function initScene() : void {
 			// create bitmap texture
-			var bmp : Bitmap = new _Bmp1();
-			curtainBMPD = bmp.bitmapData;
+
 			planeMaterial = new BitmapMaterial(curtainBMPD, false);
 			wireMaterial = new WireframeMaterial(0xfffffff, 100, 1);
 			wireMaterial.doubleSided = true;
 			// add light
 			light = new PointLight3D(true);
 			light.x = 0;
-			light.z = -500;
+			light.z = 1000;
 
-			plane = new Plane(getShadedBitmapMaterial(planeMaterial, "gouraud"), bannerWidth, bannerHeight, columns - 1, rows -1);
-		//	plane = new Plane(wireMaterial, bannerWidth, bannerHeight, columns - 1, rows - 1);
+			plane = new Plane(getShadedBitmapMaterial(planeMaterial, "gouraud"), bannerWidth, bannerHeight, columns - 1, rows - 1);
 
 			planeHolder = new DisplayObject3D();
 			plane.y = -300;
 			plane.x = -150;
 			scene.addChild(DisplayObject3D(planeHolder));
 			planeHolder.addChild(plane);
-	//		planeHolder.y = 300;
-	planeHolder.rotationX = 180;
+			// planeHolder.y = 300;
+			planeHolder.rotationX = 180;
+			// planeHolder.rotationY = 180;
+			// planeHolder.rotationZ = 180;
 
 			_activeHolder = new DisplayObject3D();
 			scene.addChild(_activeHolder);
@@ -164,19 +144,17 @@ package com.unitzeroone.pv3d.examples {
 			_yellowList.addMaterial(_carWire, "top");
 			_yellowList.addMaterial(_carWire, "bottom");
 
-		/*	car = new Cube(materiallist, CAR_WIDTH, 20, CAR_HEIGHT);
+			/*	car = new Cube(materiallist, CAR_WIDTH, 20, CAR_HEIGHT);
 			car.x = 0 - CAR_WIDTH;
 			car.y = CAR_INIT_Y
 			planeHolder.addChild(car);*/
 			scene.addChild(planeHolder);
 			camera.z = -347;
 
-			//addChild(new Stats());
+			// addChild(new Stats());
 		}
 
-		
-
-		private function getShadedBitmapMaterial(bitmapMaterial : BitmapMaterial, shaderType : String) : ShadedMaterial {
+		public function getShadedBitmapMaterial(bitmapMaterial : BitmapMaterial, shaderType : String) : ShadedMaterial {
 			var shader : Shader;
 
 			if (shaderType == "flat") {
@@ -196,10 +174,10 @@ package com.unitzeroone.pv3d.examples {
 			// create new shaded material by combining the bitmap material with shader
 			var shadedMaterial : ShadedMaterial = new ShadedMaterial(bitmapMaterial, shader);
 			shadedMaterial.interactive = true;
+			shadedMaterial.doubleSided = true;
 
 			return shadedMaterial;
 		}
-
 
 		public function updateVertices(arr : Array) : void {
 		}
@@ -211,7 +189,6 @@ package com.unitzeroone.pv3d.examples {
 		 * in this case we use it to
 		 */
 		override protected function onRenderTick(event : Event = null) : void {
-	
 			if (isYaw) {
 				planeHolder.yaw(.7);
 				_activeHolder.yaw(.7);
@@ -235,6 +212,11 @@ package com.unitzeroone.pv3d.examples {
 			light.y = mouseY;*/
 
 			super.onRenderTick(event);
+		}
+
+	
+		public function setBitmap(bmpd : BitmapData) : void {
+			curtainBMPD = bmpd;
 		}
 
 		public function getPointsInsideCar() : Array {
@@ -261,6 +243,21 @@ package com.unitzeroone.pv3d.examples {
 
 		public function render() : void {
 			onRenderTick();
+		}
+
+		public function toggleMaterial() : void {
+			isBitmap = !isBitmap;
+			if (isBitmap) {
+				var s : String = shaders[_shadeIndex];
+				plane.material = getShadedBitmapMaterial(planeMaterial, s);
+				if (_shadeIndex < shaders.length - 1) {
+					_shadeIndex++;
+				} else {
+					_shadeIndex = 0;
+				}
+			} else {
+				plane.material = wireMaterial;
+			}
 		}
 	}
 }

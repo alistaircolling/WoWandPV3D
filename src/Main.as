@@ -1,26 +1,29 @@
 ﻿package {
-	import net.hires.debug.Stats;
-
-	import flash.geom.Point;
-	import flash.geom.Rectangle;
-
 	import fr.seraf.wow.constraint.WSpringConstraint;
 	import fr.seraf.wow.core.WOWEngine;
 	import fr.seraf.wow.core.data.WVector;
-	import fr.seraf.wow.primitive.WBoundArea;
 	import fr.seraf.wow.primitive.WParticle;
-	import fr.seraf.wow.primitive.WSphere;
 
 	import graphics.Drawing;
+
+	import hires.debug.Stats;
+
+	import uk.co.soulwire.gui.SimpleGUI;
 
 	import com.greensock.TweenLite;
 	import com.unitzeroone.pv3d.examples.HelloWorld;
 
+	import org.papervision3d.core.geom.renderables.Triangle3D;
 	import org.papervision3d.core.geom.renderables.Vertex3D;
 
+	import flash.display.Bitmap;
+	import flash.display.BitmapData;
 	import flash.display.Sprite;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.geom.Matrix;
+	import flash.geom.Point;
+	import flash.geom.Rectangle;
 
 	[SWF(width="1000", height="800", frameRate="20", backgroundColor="#000000")]
 	public class Main extends Sprite {
@@ -28,16 +31,18 @@
 		private static const COLUMNS : Number = 10;
 		private static const ROWS : Number = 20;
 		private static const HEIGHT : Number = 600;
-		private static const CAR_WIDTH : Number = 350;
-		private static const CAR_HEIGHT : Number = 300;
-		private static const CAR_INIT_Y : Number = 350;
+		private static const CAR_WIDTH : Number = 300;
+		private static const CAR_HEIGHT : Number = 200;
+		private static const CAR_INIT_Y : Number = 400;
 		private static const CAR_INTRO_DURATION : Number = 1.5;
 		private static const CAR_STARTED_X : Number = -175;
-		private static const CAR_MOVE_ACROSS_DURATION : Number = 2;
-		private static const CAR_FINAL_X : Number = 400;
+		private static const CAR_MOVE_ACROSS_DURATION : Number = 5;
+		private static const CAR_FINAL_X : Number = 1000;
 		private static const CAR_INIT_X : Number = -350;
 		[Embed(source="img1.png")]
 		private var _Bmp1 : Class;
+		[Embed(source="leaf.png")]
+		private var _Leaf : Class;
 		private static const NUM_OF_BALLS : Number = 8;
 		private var wowConstraints : Array;
 		private var wow : WOWEngine;
@@ -45,7 +50,7 @@
 		private var carIsChecking : Boolean;
 		// = true;
 		// = true;
-		private var _helloWorld : HelloWorld;
+		public var _helloWorld : HelloWorld;
 		private var wowVertices : Array;
 		private var _holder2d : Sprite;
 		private var _car : Sprite;
@@ -58,61 +63,107 @@
 		private var movementX : Number = 0;
 		private var _toggle3D : Sprite;
 		private var vis3d : Boolean = true;
+		private var _gui : SimpleGUI;
+		private var guiHolder : Sprite;
+		private var _toggleMaterial : Boolean;
+		private var debug : Boolean = true;
+		private var curtainBmpd : BitmapData;
 
 		public function Main() {
 			_holder2d = new Sprite();
 			_holder2d.x = 400;
 			_holder2d.y = 80;
+
 			_car = new Sprite();
-			_car.addChild(Drawing.drawBox(CAR_WIDTH, CAR_HEIGHT, 0xcccccc, .5));
+			_car.addChild(Drawing.drawBox(CAR_WIDTH, CAR_HEIGHT, 0x00ff00, .5));
 			_car.x = CAR_INIT_X;
 			_car.y = CAR_INIT_Y;
+			var leaf : Bitmap = new _Leaf();
+			leaf.x = -150;
+			_car.addChild(leaf);
 			_holder2d.addChild(_car);
 
-			// _holder2d.addChild(Drawing.drawBox(WIDTH, HEIGHT, 0xefaf3e, 0, 1, 0xefaf3e, 1));
+			setBitmap(new _Bmp1().bitmapData);
+		}
+
+		private function setBitmap(bmpd : BitmapData) : void {
+			curtainBmpd = flipBitmapData(bmpd, "y");
 			initPhysics();
 			init3D();
 			addChild(_holder2d);
 			addEventListener(Event.ENTER_FRAME, loop);
-			addControls();
-			addChild(new Stats());
+			addGUI();
+			var stat : Stats = new Stats();
+			stat.x = 900;
+			addChild(stat);
+			syncRenderingToPhysics();
 		}
 
-		private function addControls() : void {
-			_startCar = new Sprite();
-			_startCar.y = 150;
-			_startCar.x = 0;
-			_startCar.addChild(Drawing.drawBox(30, 30, 0xffff00));
-			addChild(_startCar);
-			_startCar.addEventListener(MouseEvent.CLICK, startCar);
-			_beginAnim = new Sprite();
-			_beginAnim.y = 150;
-			_beginAnim.x = 40;
-			_beginAnim.addChild(Drawing.drawBox(30, 30, 0x00ff00));
-			addChild(_beginAnim);
-			_beginAnim.addEventListener(MouseEvent.CLICK, beginAnim);
-
-			_toggleYaw = new Sprite();
-			_toggleYaw.y = 150;
-			_toggleYaw.x = 120;
-			_toggleYaw.addChild(Drawing.drawBox(30, 30, 0xff8ffa));
-			addChild(_toggleYaw);
-			_toggleYaw.addEventListener(MouseEvent.CLICK, toggleYaw);
-			_toggle3D = new Sprite();
-			_toggle3D.y = 190;
-			_toggle3D.x = 120;
-			_toggle3D.addChild(Drawing.drawBox(30, 30, 0xffb465));
-			addChild(_toggle3D);
-			_toggle3D.addEventListener(MouseEvent.CLICK, _toggle3DOn);
-			_resetCar = new Sprite();
-			_resetCar.y = 150;
-			_resetCar.x = 80;
-			_resetCar.addChild(Drawing.drawBox(30, 30, 0x6fe6ff));
-			addChild(_resetCar);
-			_resetCar.addEventListener(MouseEvent.CLICK, resetCar);
+		public function flipBitmapData(original : BitmapData, axis : String = "x") : BitmapData {
+			var flipped : BitmapData = new BitmapData(original.width, original.height, true, 0);
+			var matrix : Matrix
+			if (axis == "x") {
+				matrix = new Matrix(-1, 0, 0, 1, original.width, 0);
+			} else {
+				matrix = new Matrix(1, 0, 0, -1, 0, original.height);
+			}
+			flipped.draw(original, matrix, null, null, null, true);
+			return flipped;
 		}
 
-		private function _toggle3DOn(event : MouseEvent) : void {
+		private function addGUI() : void {
+			_gui = new SimpleGUI(this, "GUI", "C");
+
+			_gui.addSlider("_helloWorld.light.x", -1000, 1000, {label:"LIGHT X", width:370, y:20});
+			_gui.addSlider("_helloWorld.light.y", -1000, 1000, {label:"LIGHT Y", width:370, y:40});
+			_gui.addSlider("_helloWorld.light.z", -1000, 1000, {label:"LIGHT Z", width:370, y:60});
+			_gui.addButton("START CAR", {callback:startCar, x:0, y:100});
+			_gui.addButton("BEGIN ANIM", {callback:beginAnim, x:0, y:120});
+			_gui.addButton("RESET CAR", {callback:resetCar, x:0, y:140});
+			_gui.addButton("RESET PHYSICS", {callback:resetPhysics, x:0, y:160});
+			_gui.addButton("TOGGLE 2D", {callback:toggleYaw, x:0, y:180});
+			_gui.addButton("TOGGLE 3D", {callback:_toggle3DOn, x:0, y:200});
+			_gui.addToggle("toggleMaterial", {x:0, y:230});
+			_gui.addButton("PRINT VERTICES", {callback:printVertices, x:0, y:200});
+			_gui.show();
+
+			_helloWorld.light.x = 22.9;
+			_helloWorld.light.y = -152.7;
+			_helloWorld.light.z = 1000;
+		}
+
+		private function printVertices() : void {
+			trace("=========== PRINT VERTICES ===========");
+			for (var i : int = 0; i < wowVertices.length; i++) {
+				var part : WParticle = wowVertices[i] as WParticle;
+				var vert3d : Vertex3D = _helloWorld.plane.geometry.vertices[i] as Vertex3D;
+				trace(i + " x:" + Math.round(part.px) + "," + Math.round(vert3d.x + 150) + " y:" + Math.round(part.py) + "," + Math.round(vert3d.y + 300) + " z:" + Math.round(part.pz) + "," + Math.round(vert3d.z));
+			}
+			trace("=========== END ===========");
+		}
+
+		private function resetPhysics() : void {
+			var xStep : Number = WIDTH / (COLUMNS - 1);
+			var yStep : Number = HEIGHT / (ROWS - 1);
+			var particle : WParticle;
+			var lastPart : WParticle;
+			var counter : uint = 0;
+			for (var _x : int = 0; _x < COLUMNS; _x++) {
+				for (var _y : int = 0; _y < ROWS; _y++) {
+					particle = wowVertices[counter];
+					particle.px = _x * xStep;
+					particle.py = _y * yStep;
+					particle.pz = 0;
+					if (_y == 0 || _y == ROWS - 1) {
+						particle.fixed = true;
+					}
+					counter++;
+				}
+			}
+			syncRenderingToPhysics();
+		}
+
+		private function _toggle3DOn(event : MouseEvent = null) : void {
 			vis3d = !vis3d;
 		}
 
@@ -121,7 +172,7 @@
 			_car.x = CAR_INIT_X;
 		}
 
-		private function toggleYaw(event : MouseEvent) : void {
+		private function toggleYaw(event : MouseEvent = null) : void {
 			isYaw = !isYaw;
 			if (!isYaw) {
 				// planeHolder.rotationY = 0;
@@ -151,8 +202,9 @@
 
 			// init wow basics
 			wow = new WOWEngine();
+			wow.damping = .4;
 
-			wow.collisionResponseMode = wow.STANDARD;
+			wow.collisionResponseMode = wow.SELECTIVE;
 			// add some gravity
 			wow.addMasslessForce(new WVector(0, gravity, 0));
 
@@ -166,7 +218,8 @@
 				for (var _y : int = 0; _y < ROWS; _y++) {
 					particle = new WParticle(_x * xStep, _y * yStep, 0, false);
 					// , 1, .3, 0);
-					if (_y == 0 || _y == ROWS - 1) {
+					// if (_y == 0){// || _y == ROWS - 1) {
+					if (_y == ROWS - 1) {
 						particle.fixed = true;
 						// could be fixed x
 					}
@@ -183,6 +236,7 @@
 						lastPart = wowVertices[currIndex];
 						particle = wowVertices[currIndex + ROWS];
 						constraint = new WSpringConstraint(lastPart, particle, 1);
+
 						wowConstraints.push(constraint);
 						wow.addConstraint(constraint);
 					}
@@ -199,15 +253,16 @@
 		}
 
 		private function init3D() : void {
-			_helloWorld = new HelloWorld(WIDTH, HEIGHT, COLUMNS, ROWS);
+			_helloWorld = new HelloWorld(WIDTH, HEIGHT, COLUMNS, ROWS, curtainBmpd);
 			addChild(_helloWorld);
 		}
 
 		private function loop(event : Event) : void {
 			wow.step();
-			syncRenderingToPhysics();
+
 			// if we are to move the curtain
 			if (carIsChecking) {
+				syncRenderingToPhysics();
 				// calculate the movement of the car
 				var r : Rectangle = _car.getRect(_holder2d);
 				if (lastCarRect) {
@@ -220,7 +275,7 @@
 			if (vis3d) {
 				_helloWorld.visible = true;
 				_helloWorld.singleRender();
-			}else{
+			} else {
 				_helloWorld.visible = false;
 			}
 			if (isYaw) {
@@ -259,27 +314,56 @@
 				part = wowVertices[i] as WParticle;
 				// part.fixedY = true;
 				if (lastCarRect.containsPoint(new Point(part.px, part.py))) {
-					part.px += (movementX * .5);
-
-					// part.addForce(new WVector())
+					part.px += (movementX * .8);
 				}
 			}
 		}
 
-		public function initCar() : void {
-		}
-
 		// loop through particles in wow and set vertivces omn plane to match
 		private function syncRenderingToPhysics() : void {
-			var part : WParticle;
-			var vert : Vertex3D;
-			for (var i : int = 0; i < wowVertices.length; i++) {
-				part = wowVertices[i] as WParticle;
-				vert = _helloWorld.plane.geometry.vertices[i] as Vertex3D;
-				vert.x = part.px;
-				vert.y = part.py;
-				vert.z = part.pz;
+			var p1 : WParticle;
+			var p2 : WParticle;
+			var p3 : WParticle;
+			var p4 : WParticle;
+			var top : uint = wowVertices.length;
+			var v1 : Vertex3D;
+			var v2 : Vertex3D;
+			var v3 : Vertex3D;
+			var v4 : Vertex3D;
+			var f1 : Triangle3D;
+			var f2 : Triangle3D;
+			for (var i : int = 0; i < top ; i++) {
+				p1 = wowVertices[i] as WParticle;
+				v1 = _helloWorld.plane.geometry.vertices[i] as Vertex3D;
+				v1.x = p1.px;
+				v1.y = p1.py;
+				v1.z = p1.pz;
 			}
+			/*	for (var i : int = 0; i < top-ROWS; i+=4) {
+			p1 = wowVertices[i];
+			p2 = wowVertices[i+1];
+			p3 = wowVertices[i+ROWS];
+			p4 = wowVertices[i+ROWS+1];
+			v1 = new Vertex3D(p1.px, p1.py, p1.pz);
+			v2 = new Vertex3D(p2.px, p2.py, p2.pz);
+			v3 = new Vertex3D(p3.px, p3.py, p3.pz);
+			v4 = new Vertex3D(p4.px, p4.py, p4.pz);
+			_helloWorld.mesh.geometry.vertices.push(v1, v2, v3,v4);
+			f1 = new Triangle3D(_helloWorld.mesh, [v1, v2, v3],_helloWorld.getShadedBitmapMaterial(_helloWorld.planeMaterial, "gouraud") );
+			f2 = new Triangle3D(_helloWorld.mesh, [v1, v3, v4],_helloWorld.getShadedBitmapMaterial(_helloWorld.planeMaterial, "gouraud") );
+			_helloWorld.mesh.geometry.faces.push(f1);
+			_helloWorld.mesh.geometry.faces.push(f2);
+			}
+			_helloWorld.mesh.geometry.ready = true;*/
+		}
+
+		public function get toggleMaterial() : Boolean {
+			return _toggleMaterial;
+		}
+
+		public function set toggleMaterial(toggleMaterial : Boolean) : void {
+			_toggleMaterial = toggleMaterial;
+			_helloWorld.toggleMaterial();
 		}
 	}
 }

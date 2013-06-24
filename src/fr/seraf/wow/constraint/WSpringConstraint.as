@@ -38,7 +38,9 @@ package fr.seraf.wow.constraint {
 
 		private var massAffect:Boolean;
 		private var delta:WVector;
-		private var deltaLength:Number;
+		private var deltaLength : Number;
+		//this is how likely the particles are to stay fixed as the constr length increases-- higher the number the longer the constr will go
+		public var stayFioxedRatio : Number = 1.5;
 		
 
 		
@@ -64,6 +66,7 @@ package fr.seraf.wow.constraint {
 			delta = WVectorMath.sub(p1.curr,p2.curr);
 			deltaLength = WVectorMath.distance(p1.curr,p2.curr);
 			restLength = deltaLength;
+			
 		}
 		
 		
@@ -180,8 +183,25 @@ package fr.seraf.wow.constraint {
 		 * @private
 		 */
 		public override function resolve():void {
+			if (p1.fixed){
+				if(deltaLength>restLength*stayFioxedRatio){
+					p1.fixed = false;
+				}
+				if(p2.fixed){
+					return
+				}
+			}
+			if (p2.fixed){
+				if(deltaLength>restLength*stayFioxedRatio){
+					p2.fixed = false;
+				}
+				if(p1.fixed){
+					return
+				}
+			}
 			
-			if (p1.fixed && p2.fixed) return;
+			//if (p1.fixed && p2.fixed) return;
+			
 			/*
 			//delta le vecteur des 2 pts
 			delta = WVectorMath.sub(p1.curr,p2.curr);
@@ -212,6 +232,7 @@ package fr.seraf.wow.constraint {
 			
 			//var d1: Number = Math.sqrt( dx * dx + dy * dy );
 			deltaLength =  WVectorMath.distance(p1.curr,p2.curr);
+		
 			//var d2: Number = stiffness * ( d1 - restLength ) / d1;
 			var diff:Number = stiffness * ( deltaLength - restLength ) / deltaLength;
 			//dx *= d2;

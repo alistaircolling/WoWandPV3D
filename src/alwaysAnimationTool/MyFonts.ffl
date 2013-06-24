@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<library name="MyFonts" output="src" format="2" static="false">
+	<font id="Arial" family="Arial" style="0" cs="5" type="1" path="../assets/Arial.ttf" ascff="false" autoId="false"/>
+	<font id="iTCAvantGardeGothic" family="ITC Avant Garde Gothic" style="0" cs="5" type="0" path="" ascff="false" autoId="true"/>
+</library>
